@@ -3,6 +3,11 @@ import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+console.log('🔑 Firebase Config Check:');
+console.log('API Key present:', !!process.env.AIzaSyA4ThiKjxntFh4p_W_BhxwxhwNtOOGksVA);
+console.log('API Key length:', process.env.AIzaSyA4ThiKjxntFh4p_W_BhxwxhwNtOOGksVA?.length);
+console.log('Project ID:', process.env.oktopus-de656);
+
 const firebaseConfig = {
   apiKey: "AIzaSyA4ThiKjxntFh4p_W_BhxwxhwNtOOGksVA",
   authDomain: "oktopus-de656.firebaseapp.com",
