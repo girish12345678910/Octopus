@@ -77,67 +77,61 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
   }, []);
 
   // Real-time message listener with improved implementation
-  useEffect(() => {
-    if (!isAuthenticated || !roomId) return;
+  // Real-time message listener with proper state updates
+useEffect(() => {
+  if (!isAuthenticated || !roomId) return;
 
-    console.log('📡 Setting up message listener for room:', roomId);
+  console.log('📡 Setting up message listener for room:', roomId);
 
-    const messagesQuery = query(
-      collection(db, 'messages'),
-      where('roomId', '==', roomId),
-      orderBy('timestamp', 'asc'),
-      limit(100) // Limit to last 100 messages for performance
-    );
+  // ✅ This is where your query code goes
+  const messagesQuery = query(
+    collection(db, 'messages'),
+    where('roomId', '==', roomId),
+    orderBy('timestamp', 'asc'),
+    limit(100)
+  );
 
-    // Enhanced onSnapshot listener
-    unsubscribeRef.current = onSnapshot(
-      messagesQuery,
-      (snapshot) => {
-        console.log('📨 Snapshot received:', {
-          size: snapshot.size,
-          changes: snapshot.docChanges().length,
-          fromCache: snapshot.metadata.fromCache,
-          hasPendingWrites: snapshot.metadata.hasPendingWrites
+  // Enhanced onSnapshot listener
+  unsubscribeRef.current = onSnapshot(
+    messagesQuery,
+    (snapshot) => {
+      console.log('📨 Snapshot received:', {
+        size: snapshot.size,
+        changes: snapshot.docChanges().length,
+        fromCache: snapshot.metadata.fromCache
+      });
+      
+      // Process all documents in the snapshot
+      const allMessages = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        allMessages.push({
+          id: doc.id,
+          ...data,
+          timestamp: data.timestamp?.toDate() || new Date()
         });
-        
-        // Process all documents in the snapshot
-        const allMessages = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          allMessages.push({
-            id: doc.id,
-            ...data,
-            timestamp: data.timestamp?.toDate() || new Date()
-          });
-        });
+      });
 
-        // Sort messages by timestamp to ensure correct order
-        allMessages.sort((a, b) => a.timestamp - b.timestamp);
-        
-        console.log('📋 Setting messages:', allMessages.length, 'total');
-        setMessages(allMessages);
+      // Sort messages by timestamp
+      allMessages.sort((a, b) => a.timestamp - b.timestamp);
+      
+      console.log('📋 Setting messages:', allMessages.length, 'total');
+      setMessages(allMessages);
+    },
+    (error) => {
+      console.error('❌ Message listener error:', error);
+      toast.error('Failed to load messages: ' + error.message);
+    }
+  );
 
-        // Update connection status
-        if (snapshot.metadata.fromCache) {
-          setConnectionStatus('offline');
-        } else {
-          setConnectionStatus('connected');
-        }
-      },
-      (error) => {
-        console.error('❌ Message listener error:', error);
-        setConnectionStatus('error');
-        toast.error('Failed to load messages: ' + error.message);
-      }
-    );
+  return () => {
+    if (unsubscribeRef.current) {
+      console.log('🔇 Unsubscribing message listener');
+      unsubscribeRef.current();
+    }
+  };
+}, [isAuthenticated, roomId]);
 
-    return () => {
-      if (unsubscribeRef.current) {
-        console.log('🔇 Unsubscribing message listener');
-        unsubscribeRef.current();
-      }
-    };
-  }, [isAuthenticated, roomId]);
 
   // Send message with enhanced error handling and retry logic
   const handleSendMessage = async (e) => {
@@ -360,5 +354,11 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     </div>
   );
 };
+// Simplified query without ordering - temporary workaround
+const messagesQuery = query(
+  collection(db, 'messages'),
+  where('roomId', '==', roomId)
+  // Remove orderBy temporarily
+);
 
 export default ChatRoom;
