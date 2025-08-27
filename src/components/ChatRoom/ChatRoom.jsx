@@ -19,6 +19,8 @@ import {
 } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase/config';
+// ✅ Import the profanity filter
+import profanityFilter from '../../utils/profanityFilter';
 
 const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
   const [message, setMessage] = useState('');
@@ -26,6 +28,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [onlineUsers, setOnlineUsers] = useState(0);
+  const [userWarnings, setUserWarnings] = useState(0); // ✅ Add warning state
   const messagesEndRef = useRef(null);
   const unsubscribeRef = useRef();
 
@@ -74,7 +77,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     authenticateUser();
 
     return () => unsubscribeAuth();
-  }, []); // ✅ Empty dependency array to run only once
+  }, []);
 
   // Real-time message listener with proper state updates
   useEffect(() => {
@@ -140,21 +143,61 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     };
   }, [isAuthenticated, roomId]);
 
-  // Send message with enhanced error handling and retry logic
+  // ✅ Check if user is banned on component mount
+  useEffect(() => {
+    const isBanned = localStorage.getItem('userBanned');
+    if (isBanned === 'true') {
+      toast.error('🚫 You are currently banned from sending messages');
+      setIsAuthenticated(false);
+    }
+  }, []);
+
+  // ✅ Enhanced message sending with profanity filtering
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!message.trim() || !isAuthenticated) return;
 
     const messageText = message.trim();
+    
+    // ✅ Enhanced profanity analysis
+    const analysis = profanityFilter.analyzeProfanity(messageText);
+    
+    // Handle different profanity levels
+    switch (analysis.action) {
+      case 'block':
+        toast.error(`❌ ${analysis.message}`);
+        setUserWarnings(prev => prev + 1);
+        
+        // Auto-ban after 3 warnings
+        if (userWarnings >= 2) {
+          toast.error('🚫 You have been temporarily banned for repeated violations');
+          localStorage.setItem('userBanned', 'true');
+          onLeaveRoom();
+          return;
+        }
+        return;
+
+      case 'warn':
+        toast.warn(`⚠️ ${analysis.message}`);
+        setUserWarnings(prev => prev + 1);
+        // Continue with cleaned message
+        break;
+
+      case 'allow':
+        // Message is clean, proceed normally
+        break;
+    }
+
+    const finalMessageText = analysis.cleanText;
     const tempId = Date.now();
     setMessage('');
 
-    console.log('📤 Sending message:', messageText);
+    console.log('📤 Sending message:', finalMessageText);
 
     // Optimistic update - add message immediately to UI
     const optimisticMessage = {
       id: `temp-${tempId}`,
-      content: messageText,
+      content: finalMessageText,
       username: currentUser?.username || 'Anonymous User',
       userId: currentUser?.id || auth.currentUser?.uid || 'unknown',
       roomId: roomId,
@@ -167,12 +210,15 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
 
     try {
       const messageData = {
-        content: messageText,
+        content: finalMessageText,
         username: currentUser?.username || 'Anonymous User',
         userId: currentUser?.id || auth.currentUser?.uid || 'unknown',
         roomId: roomId,
         timestamp: serverTimestamp(),
-        type: 'user'
+        type: 'user',
+        // ✅ Add moderation info
+        moderated: analysis.level !== 'clean',
+        originalContent: analysis.level !== 'clean' ? messageText : undefined
       };
 
       const docRef = await addDoc(collection(db, 'messages'), messageData);
@@ -197,6 +243,21 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     }
   };
 
+  // ✅ Add real-time typing filter with visual feedback
+  const handleInputChange = (e) => {
+    const text = e.target.value;
+    setMessage(text);
+
+    // Real-time profanity detection with visual feedback
+    if (text.length > 0 && profanityFilter.isProfane(text)) {
+      e.target.style.borderColor = '#ef4444'; // Red border for inappropriate content
+      e.target.style.boxShadow = '0 0 0 1px #ef4444';
+    } else {
+      e.target.style.borderColor = '#6b7280'; // Normal border
+      e.target.style.boxShadow = 'none';
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -215,6 +276,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
       <div>🌐 Status: {connectionStatus}</div>
       <div>💬 Messages: {messages.length}</div>
       <div>👤 User: {currentUser?.username}</div>
+      <div>⚠️ Warnings: {userWarnings}/3</div>
       {messages.slice(-2).map(msg => (
         <div key={msg.id} className="text-xs opacity-75 mt-1">
           {msg.isPending && '⏳'} {msg.username}: {msg.content.substring(0, 15)}...
@@ -316,11 +378,9 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
                   isOwn={msg.userId === (currentUser?.id || auth.currentUser?.uid)}
                   currentUser={currentUser}
                   onReaction={(messageId, reactions) => {
-                    // Handle reaction updates
                     console.log('Reaction added to message:', messageId, reactions);
                   }}
                   onReply={(message) => {
-                    // Handle reply functionality
                     console.log('Reply to message:', message);
                   }}
                 />
@@ -331,22 +391,28 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
         </div>
       </div>
 
-      {/* Message Input */}
+      {/* ✅ Enhanced Message Input with Profanity Filter and Warning System */}
       <div className="bg-black/20 backdrop-blur-lg border-t border-gray-700/50 p-4">
+        {userWarnings > 0 && (
+          <div className="mb-2 p-2 bg-yellow-600/20 border border-yellow-500/30 rounded-lg text-yellow-300 text-sm">
+            ⚠️ Warning: {userWarnings}/3 - Keep conversations respectful or risk being banned
+          </div>
+        )}
+        
         <form onSubmit={handleSendMessage} className="flex items-end space-x-3">
           <div className="flex-1 relative">
             <textarea
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={handleInputChange} // ✅ Updated to use profanity filter
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSendMessage(e);
                 }
               }}
-              placeholder={`Send anonymous message to ${roomId}... (Press Enter to send)`}
+              placeholder={`Send message to ${roomId}... (Keep it respectful!)`}
               rows={1}
-              className="w-full bg-gray-800/50 border border-gray-600/50 rounded-2xl px-4 py-3 pr-16 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none backdrop-blur-lg"
+              className="w-full bg-gray-800/50 border border-gray-600/50 rounded-2xl px-4 py-3 pr-16 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none backdrop-blur-lg transition-all duration-200"
               maxLength={500}
               disabled={connectionStatus === 'error' || !isAuthenticated}
             />
