@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   PaperAirplaneIcon, 
   ArrowLeftIcon, 
-  UserGroupIcon,
-  SparklesIcon 
+  UserGroupIcon 
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import MessageBubble from './MessageBubble';
@@ -24,67 +23,28 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isJoining, setIsJoining] = useState(true);
-  const [joinError, setJoinError] = useState(null);
   const messagesEndRef = useRef(null);
   const unsubscribeRef = useRef();
 
-  // Authenticate user anonymously when joining room
+  // Authenticate user anonymously
   useEffect(() => {
-    let mounted = true;
-    
-    const authenticateAndJoin = async () => {
+    const authenticateUser = async () => {
       try {
-        console.log('🔐 Starting anonymous authentication...');
-        
-        // Sign in anonymously
-        const userCredential = await signInAnonymously(auth);
-        console.log('✅ Anonymous auth successful:', userCredential.user.uid);
-        
-        if (mounted) {
-          setIsAuthenticated(true);
-          setJoinError(null);
-          toast.success('Joined chat room successfully!');
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
         }
+        setIsAuthenticated(true);
+        console.log('✅ Anonymous auth successful');
       } catch (error) {
         console.error('❌ Authentication failed:', error);
-        
-        if (mounted) {
-          setJoinError(error.message);
-          toast.error(`Failed to join chat room: ${error.message}`);
-        }
-      } finally {
-        if (mounted) {
-          setIsJoining(false);
-        }
+        toast.error('Failed to authenticate');
       }
     };
 
-    // Listen for auth state changes
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log('✅ User authenticated:', user.uid);
-        if (mounted) {
-          setIsAuthenticated(true);
-          setJoinError(null);
-        }
-      } else {
-        console.log('❌ No user authenticated');
-        if (mounted) {
-          setIsAuthenticated(false);
-        }
-      }
-    });
-
-    authenticateAndJoin();
-
-    return () => {
-      mounted = false;
-      unsubscribeAuth();
-    };
+    authenticateUser();
   }, []);
 
-  // Subscribe to real-time messages after authentication
+  // Real-time message listener with proper state updates
   useEffect(() => {
     if (!isAuthenticated || !roomId) return;
 
@@ -96,43 +56,48 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
       orderBy('timestamp', 'asc')
     );
 
+    // ✅ Fixed: Use docChanges() for efficient updates
     unsubscribeRef.current = onSnapshot(
       messagesQuery,
       (snapshot) => {
-        const newMessages = [];
-        snapshot.forEach((doc) => {
-          newMessages.push({ id: doc.id, ...doc.data() });
+        console.log('📨 Snapshot received, changes:', snapshot.docChanges().length);
+        
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const newMessage = {
+              id: change.doc.id,
+              ...change.doc.data(),
+              timestamp: change.doc.data().timestamp?.toDate() || new Date()
+            };
+            
+            console.log('➕ New message:', newMessage.content);
+            
+            // ✅ Fixed: Use functional update to prevent state mutations
+            setMessages(prevMessages => {
+              // Check if message already exists to prevent duplicates
+              const exists = prevMessages.some(msg => msg.id === newMessage.id);
+              if (exists) return prevMessages;
+              
+              return [...prevMessages, newMessage];
+            });
+          }
         });
-        
-        console.log('📨 Messages received:', newMessages.length);
-        setMessages(newMessages);
-        
-        // Add welcome message if this is first load
-        if (newMessages.length === 0) {
-          const welcomeMessages = [
-            {
-              id: 'welcome-' + Date.now(),
-              content: `Welcome to room "${roomId}"! 🎉 Start chatting with others anonymously.`,
-              username: 'System',
-              type: 'system',
-              timestamp: new Date(),
-              roomId: roomId
-            }
-          ];
-          setMessages(welcomeMessages);
-        }
       },
       (error) => {
         console.error('❌ Message listener error:', error);
-        toast.error('Failed to load messages: ' + error.message);
+        toast.error('Failed to load messages');
       }
     );
 
     return () => {
-      if (unsubscribeRef.current) unsubscribeRef.current();
+      if (unsubscribeRef.current) {
+        console.log('🔇 Unsubscribing message listener');
+        unsubscribeRef.current();
+      }
     };
   }, [isAuthenticated, roomId]);
 
+  // Send message with proper error handling
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!message.trim() || !isAuthenticated) return;
@@ -140,20 +105,25 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     const messageText = message.trim();
     setMessage('');
 
+    console.log('📤 Sending message:', messageText);
+
     try {
-      await addDoc(collection(db, 'messages'), {
+      const messageData = {
         content: messageText,
         username: currentUser?.username || 'Anonymous User',
-        userId: currentUser?.id || auth.currentUser?.uid,
+        userId: currentUser?.id || auth.currentUser?.uid || 'unknown',
         roomId: roomId,
         timestamp: serverTimestamp(),
         type: 'user'
-      });
+      };
 
+      await addDoc(collection(db, 'messages'), messageData);
       console.log('✅ Message sent successfully');
+      
     } catch (error) {
       console.error('❌ Error sending message:', error);
       toast.error('Failed to send message: ' + error.message);
+      setMessage(messageText); // Restore message on failure
     }
   };
 
@@ -161,53 +131,13 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // ✅ Fixed: Scroll on messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Retry joining room
-  const retryJoin = () => {
-    setIsJoining(true);
-    setJoinError(null);
-    window.location.reload(); // Simple retry by reloading
-  };
-
-  // Show error state if join failed
-  if (joinError) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-        <div className="text-center text-white max-w-md mx-auto p-8">
-          <div className="mb-6">
-            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-red-400 text-2xl">⚠️</span>
-            </div>
-            <h1 className="text-2xl font-bold mb-4 text-red-400">Failed to Join Chat Room</h1>
-            <p className="text-gray-300 mb-6">
-              {joinError}
-            </p>
-          </div>
-          
-          <div className="space-y-3">
-            <button 
-              onClick={retryJoin}
-              className="w-full bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl transition-colors"
-            >
-              Retry Join
-            </button>
-            <button 
-              onClick={onLeaveRoom}
-              className="w-full bg-gray-600 hover:bg-gray-700 px-6 py-3 rounded-xl transition-colors"
-            >
-              Back to Landing
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show joining state
-  if (isJoining) {
+  // Show loading while authenticating
+  if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
         <div className="text-center text-white">
@@ -219,7 +149,6 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     );
   }
 
-  // Main chat interface (same as before but with auth checks)
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       {/* Header */}
@@ -235,7 +164,13 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
             <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
             <div>
               <h1 className="text-xl font-bold text-white">Room: {roomId}</h1>
-              <p className="text-sm text-gray-400">Anonymous Group Chat</p>
+              <div className="flex items-center space-x-2">
+                <UserGroupIcon className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-400">Anonymous Group Chat</span>
+                <span className="text-xs text-green-400">
+                  {messages.length} messages
+                </span>
+              </div>
             </div>
           </div>
           <div className="text-right">
@@ -248,6 +183,13 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
       {/* Messages Area */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto px-4 py-4 space-y-4">
+          {messages.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-400 text-lg mb-2">Welcome to room "{roomId}"! 🎉</p>
+              <p className="text-gray-500">Be the first to send a message...</p>
+            </div>
+          )}
+          
           <AnimatePresence>
             {messages.map((msg) => (
               <MessageBubble 
@@ -278,13 +220,12 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
               rows={1}
               className="w-full bg-gray-800/50 border border-gray-600/50 rounded-2xl px-4 py-3 pr-16 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none backdrop-blur-lg"
               maxLength={500}
-              disabled={!isAuthenticated}
             />
           </div>
           
           <motion.button
             type="submit"
-            disabled={!message.trim() || !isAuthenticated}
+            disabled={!message.trim()}
             whileTap={{ scale: 0.95 }}
             whileHover={{ scale: 1.05 }}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 text-white rounded-2xl p-3 transition-all duration-200 disabled:cursor-not-allowed"
