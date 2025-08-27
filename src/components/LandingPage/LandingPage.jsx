@@ -144,4 +144,32 @@ const LandingPage = ({ onEnterChat }) => {
   );
 };
 
+// Add this section to show popular rooms
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+  <motion.button
+    onClick={() => onEnterChat('General')}
+    className="p-4 bg-blue-600/10 border border-blue-500/30 rounded-xl hover:bg-blue-600/20 transition-colors"
+  >
+    <h3 className="font-bold text-blue-300">General Chat</h3>
+    <p className="text-sm text-gray-400">Open discussion for everyone</p>
+  </motion.button>
+  
+  <motion.button
+    onClick={() => onEnterChat('Tech')}
+    className="p-4 bg-green-600/10 border border-green-500/30 rounded-xl hover:bg-green-600/20 transition-colors"
+  >
+    <h3 className="font-bold text-green-300">Tech Talk</h3>
+    <p className="text-sm text-gray-400">Discuss technology & coding</p>
+  </motion.button>
+  
+  <motion.button
+    onClick={() => onEnterChat('Random')}
+    className="p-4 bg-purple-600/10 border border-purple-500/30 rounded-xl hover:bg-purple-600/20 transition-colors"
+  >
+    <h3 className="font-bold text-purple-300">Random</h3>
+    <p className="text-sm text-gray-400">Chat about anything</p>
+  </motion.button>
+</div>
+
+
 export default LandingPage;
