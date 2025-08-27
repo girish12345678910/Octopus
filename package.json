@@ -22,6 +22,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.10",
     "autoprefixer": "^10.4.21",
     "imagemin": "^9.0.1",
     "imagemin-cli": "^8.0.0",
