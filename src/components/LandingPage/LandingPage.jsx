@@ -100,7 +100,7 @@ const LandingPage = ({ onEnterChat }) => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="bg-black/20 backdrop-blur-lg border border-gray-700/50 rounded-2xl p-8 max-w-md mx-auto"
+          className="bg-black/20 backdrop-blur-lg border border-gray-700/50 rounded-2xl p-8 max-w-md mx-auto mb-8"
         >
           <h2 className="text-2xl font-bold text-white mb-6">Enter a Room</h2>
           
@@ -139,37 +139,41 @@ const LandingPage = ({ onEnterChat }) => {
             </motion.button>
           </div>
         </motion.div>
+
+        {/* Popular Rooms Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.6 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto"
+        >
+          <motion.button
+            onClick={() => onEnterChat('General')}
+            className="p-4 bg-blue-600/10 border border-blue-500/30 rounded-xl hover:bg-blue-600/20 transition-colors"
+          >
+            <h3 className="font-bold text-blue-300">General Chat</h3>
+            <p className="text-sm text-gray-400">Open discussion for everyone</p>
+          </motion.button>
+          
+          <motion.button
+            onClick={() => onEnterChat('Tech')}
+            className="p-4 bg-green-600/10 border border-green-500/30 rounded-xl hover:bg-green-600/20 transition-colors"
+          >
+            <h3 className="font-bold text-green-300">Tech Talk</h3>
+            <p className="text-sm text-gray-400">Discuss technology & coding</p>
+          </motion.button>
+          
+          <motion.button
+            onClick={() => onEnterChat('Random')}
+            className="p-4 bg-purple-600/10 border border-purple-500/30 rounded-xl hover:bg-purple-600/20 transition-colors"
+          >
+            <h3 className="font-bold text-purple-300">Random</h3>
+            <p className="text-sm text-gray-400">Chat about anything</p>
+          </motion.button>
+        </motion.div>
       </div>
     </div>
   );
 };
-
-// Add this section to show popular rooms
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-  <motion.button
-    onClick={() => onEnterChat('General')}
-    className="p-4 bg-blue-600/10 border border-blue-500/30 rounded-xl hover:bg-blue-600/20 transition-colors"
-  >
-    <h3 className="font-bold text-blue-300">General Chat</h3>
-    <p className="text-sm text-gray-400">Open discussion for everyone</p>
-  </motion.button>
-  
-  <motion.button
-    onClick={() => onEnterChat('Tech')}
-    className="p-4 bg-green-600/10 border border-green-500/30 rounded-xl hover:bg-green-600/20 transition-colors"
-  >
-    <h3 className="font-bold text-green-300">Tech Talk</h3>
-    <p className="text-sm text-gray-400">Discuss technology & coding</p>
-  </motion.button>
-  
-  <motion.button
-    onClick={() => onEnterChat('Random')}
-    className="p-4 bg-purple-600/10 border border-purple-500/30 rounded-xl hover:bg-purple-600/20 transition-colors"
-  >
-    <h3 className="font-bold text-purple-300">Random</h3>
-    <p className="text-sm text-gray-400">Chat about anything</p>
-  </motion.button>
-</div>
-
 
 export default LandingPage;

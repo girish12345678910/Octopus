@@ -4,14 +4,13 @@ import LandingPage from './components/LandingPage/LandingPage';
 import ChatRoom from './components/ChatRoom/ChatRoom';
 import './App.css';
 
-
 function App() {
   const [currentView, setCurrentView] = useState('landing');
-  const [currentUser, setCurrentUser] = useState(null);
   const [currentRoom, setCurrentRoom] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
+  // Generate anonymous user on app load
   useEffect(() => {
-    // Generate anonymous user
     if (!currentUser) {
       const adjectives = ['Swift', 'Silent', 'Bright', 'Cool', 'Sharp', 'Wise'];
       const animals = ['Fox', 'Eagle', 'Wolf', 'Dolphin', 'Tiger', 'Falcon'];
@@ -44,7 +43,7 @@ function App() {
       {currentView === 'landing' ? (
         <LandingPage onEnterChat={handleEnterChat} />
       ) : (
-        <ChatRoom
+        <ChatRoom 
           roomId={currentRoom}
           currentUser={currentUser}
           onLeaveRoom={handleLeaveRoom}
