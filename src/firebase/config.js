@@ -20,7 +20,7 @@ const firebaseConfig = {
     measurementId: "G-40LD4SZNTE"
 };
 
-// Initialize Firebase
+// Initialize 
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase services

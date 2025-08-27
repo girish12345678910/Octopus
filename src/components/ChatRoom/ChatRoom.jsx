@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebase/config';
-// ✅ Import the profanity filter
+//  profanity filter
 import profanityFilter from '../../utils/profanityFilter';
 
 const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
@@ -32,14 +32,14 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
   const messagesEndRef = useRef(null);
   const unsubscribeRef = useRef();
 
-  // ✅ Updated authentication useEffect with session persistence
+  //  authentication useEffect 
   useEffect(() => {
     const authenticateUser = async () => {
       try {
         setConnectionStatus('authenticating');
         console.log('🔐 Starting authentication...');
         
-        // Check if already authenticated from App.js
+        // Check  authenticated from App.js
         if (auth.currentUser) {
           console.log('✅ Already authenticated from App:', auth.currentUser.uid);
           setIsAuthenticated(true);
@@ -79,13 +79,13 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     return () => unsubscribeAuth();
   }, []);
 
-  // Real-time message listener with proper state updates
+  // Real-time message listener 
   useEffect(() => {
     if (!isAuthenticated || !roomId) return;
 
     console.log('📡 Setting up message listener for room:', roomId);
 
-    // ✅ Query with proper composite index requirements
+    // Query 
     const messagesQuery = query(
       collection(db, 'messages'),
       where('roomId', '==', roomId),
@@ -93,7 +93,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
       limit(100)
     );
 
-    // Enhanced onSnapshot listener
+    //  onSnapshot listener
     unsubscribeRef.current = onSnapshot(
       messagesQuery,
       (snapshot) => {
@@ -104,7 +104,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
           hasPendingWrites: snapshot.metadata.hasPendingWrites
         });
         
-        // Process all documents in the snapshot
+        
         const allMessages = [];
         snapshot.forEach((doc) => {
           const data = doc.data();
@@ -115,7 +115,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
           });
         });
 
-        // Sort messages by timestamp to ensure correct order
+        // Sort messages by timestamp t
         allMessages.sort((a, b) => a.timestamp - b.timestamp);
         
         console.log('📋 Setting messages:', allMessages.length, 'total');
@@ -143,7 +143,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     };
   }, [isAuthenticated, roomId]);
 
-  // ✅ Check if user is banned on component mount
+  //  Check if user is banned on component mount
   useEffect(() => {
     const isBanned = localStorage.getItem('userBanned');
     if (isBanned === 'true') {
@@ -152,14 +152,14 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     }
   }, []);
 
-  // ✅ Enhanced message sending with profanity filtering
+  //  Enhanced message sending with profanity filtering
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!message.trim() || !isAuthenticated) return;
 
     const messageText = message.trim();
     
-    // ✅ Enhanced profanity analysis
+    //  Enhanced profanity analysis
     const analysis = profanityFilter.analyzeProfanity(messageText);
     
     // Handle different profanity levels
@@ -184,7 +184,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
         break;
 
       case 'allow':
-        // Message is clean, proceed normally
+        // Message is clean
         break;
     }
 
@@ -194,7 +194,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
 
     console.log('📤 Sending message:', finalMessageText);
 
-    // Optimistic update - add message immediately to UI
+    // Optimistic update
     const optimisticMessage = {
       id: `temp-${tempId}`,
       content: finalMessageText,
@@ -216,7 +216,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
         roomId: roomId,
         timestamp: serverTimestamp(),
         type: 'user',
-        // ✅ Add moderation info
+        //  Add moderation info
         moderated: analysis.level !== 'clean',
         originalContent: analysis.level !== 'clean' ? messageText : undefined
       };
@@ -243,7 +243,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
     }
   };
 
-  // ✅ Add real-time typing filter with visual feedback
+  //  Add real-time typing filter with visual feedback
   const handleInputChange = (e) => {
     const text = e.target.value;
     setMessage(text);
@@ -391,7 +391,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
         </div>
       </div>
 
-      {/* ✅ Enhanced Message Input with Profanity Filter and Warning System */}
+      {/*  Enhanced Message Input with Profanity Filter and Warning System */}
       <div className="bg-black/20 backdrop-blur-lg border-t border-gray-700/50 p-4">
         {userWarnings > 0 && (
           <div className="mb-2 p-2 bg-yellow-600/20 border border-yellow-500/30 rounded-lg text-yellow-300 text-sm">
@@ -403,7 +403,7 @@ const ChatRoom = ({ roomId, currentUser, onLeaveRoom }) => {
           <div className="flex-1 relative">
             <textarea
               value={message}
-              onChange={handleInputChange} // ✅ Updated to use profanity filter
+              onChange={handleInputChange} 
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
